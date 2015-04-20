@@ -87,7 +87,8 @@ namespace Sivir
             Config.SubMenu("Draw").AddItem(new MenuItem("orb", "Orbwalker target OKTW© style").SetValue(true));
 
             Config.AddItem(new MenuItem("farmW", "Farm W").SetValue(true));
-            Config.AddItem(new MenuItem("Hit", "Hit Chance Q").SetValue(new Slider(3, 3, 0)));
+            Config.AddItem(new MenuItem("forceW", "Force W").SetValue(false));
+            Config.AddItem(new MenuItem("Hit", "Hit Chance Q").SetValue(new Slider(3, 4, 0)));
             foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(enemy => enemy.Team != Player.Team))
                 Config.SubMenu("Haras Q").AddItem(new MenuItem("haras" + enemy.BaseSkinName, enemy.BaseSkinName).SetValue(true));
             Config.AddItem(new MenuItem("autoR", "Auto R").SetValue(true));
@@ -201,6 +202,20 @@ namespace Sivir
                     }
                 }
             }
+            if (Config.Item("forceW").GetValue<bool>() && W.IsReady())
+            {
+                var target = Orbwalker.GetTarget();
+                var t = TargetSelector.GetTarget(900, TargetSelector.DamageType.Physical);
+                if (W.IsReady() )
+                {
+                    if (Orbwalker.ActiveMode.ToString() == "Combo" && target is Obj_AI_Hero && ObjectManager.Player.Mana > RMANA + WMANA)
+                        Utility.DelayAction.Add(250, () => W.Cast());
+                    else if (target is Obj_AI_Hero && ObjectManager.Player.Mana > RMANA + WMANA + QMANA)
+                        Utility.DelayAction.Add(250, () => W.Cast());
+                    else if (Orbwalker.ActiveMode.ToString() == "LaneClear" && ObjectManager.Player.Mana > RMANA + WMANA + QMANA  && (farmW() || t.IsValidTarget()))
+                        Utility.DelayAction.Add(250, () => W.Cast());
+                }
+            }
             if (R.IsReady() && Orbwalker.ActiveMode.ToString() == "Combo" && Config.Item("autoR").GetValue<bool>())
             {
                 var t = TargetSelector.GetTarget(800, TargetSelector.DamageType.Physical);
@@ -250,7 +265,38 @@ namespace Sivir
                 {
                     if (target.IsFacing(ObjectManager.Player) || target.Path.Count() == 0)
                     {
-                        if (ObjectManager.Player.Distance(target.Position) < QWER.Range - ((target.MoveSpeed * QWER.Delay) + (Player.Distance(target.Position) / QWER.Speed) + (target.BoundingRadius)))
+                        if (ObjectManager.Player.Distance(target.Position) < QWER.Range - ((target.MoveSpeed * QWER.Delay) + (Player.Distance(target.Position) / QWER.Speed)))
+                            QWER.CastIfHitchanceEquals(target, HitChance.High, true);
+                    }
+                    else
+                    {
+                        QWER.CastIfHitchanceEquals(target, HitChance.High, true);
+                    }
+                }
+            }
+            else if (HitChanceNum == 4 && (int)QWER.GetPrediction(target).Hitchance > 4)
+            {
+                List<Vector2> waypoints = target.GetWaypoints();
+                //debug("" + target.Path.Count() + " " + (target.Position == target.ServerPosition) + (waypoints.Last<Vector2>().To3D() == target.ServerPosition));
+                if (QWER.Delay < 0.3)
+                    QWER.CastIfHitchanceEquals(target, HitChance.Dashing, true);
+                QWER.CastIfHitchanceEquals(target, HitChance.Immobile, true);
+                QWER.CastIfWillHit(target, 2, true);
+
+                float SiteToSite = ((target.MoveSpeed * QWER.Delay) + (Player.Distance(target.ServerPosition) / QWER.Speed)) * 6 - QWER.Width;
+                float BackToFront = ((target.MoveSpeed * QWER.Delay) + (Player.Distance(target.ServerPosition) / QWER.Speed));
+                if (ObjectManager.Player.Distance(waypoints.Last<Vector2>().To3D()) < SiteToSite || ObjectManager.Player.Distance(target.Position) < SiteToSite)
+                    QWER.CastIfHitchanceEquals(target, HitChance.High, true);
+                else if (target.Path.Count() < 2
+                    && (target.ServerPosition.Distance(waypoints.Last<Vector2>().To3D()) > SiteToSite
+                    || Math.Abs(ObjectManager.Player.Distance(waypoints.Last<Vector2>().To3D()) - ObjectManager.Player.Distance(target.Position)) > BackToFront
+                    || target.HasBuffOfType(BuffType.Slow) || target.HasBuff("Recall")
+                    || (target.Path.Count() == 0 && target.Position == target.ServerPosition)
+                    ))
+                {
+                    if (target.IsFacing(ObjectManager.Player) || target.Path.Count() == 0)
+                    {
+                        if (ObjectManager.Player.Distance(target.Position) < QWER.Range - ((target.MoveSpeed * QWER.Delay) + (Player.Distance(target.Position) / QWER.Speed)))
                             QWER.CastIfHitchanceEquals(target, HitChance.High, true);
                     }
                     else
@@ -260,26 +306,7 @@ namespace Sivir
                 }
             }
         }
-        private static void castQ(Obj_AI_Hero target)
-        {
-            List<Vector2> waypoints = target.GetWaypoints();
-            if (Config.Item("Hit").GetValue<Slider>().Value == 0)
-                Q.Cast(target, true);
-            else if (Config.Item("Hit").GetValue<Slider>().Value == 1)
-                Q.CastIfHitchanceEquals(target, HitChance.VeryHigh, true);
-            else if (Config.Item("Hit").GetValue<Slider>().Value == 2 && target.Path.Count() < 2)
-                Q.CastIfHitchanceEquals(target, HitChance.VeryHigh, true);
-            else if (Config.Item("Hit").GetValue<Slider>().Value == 3 && target.Path.Count() < 2 && (target.ServerPosition.Distance(waypoints.Last<Vector2>().To3D()) > 500 || Math.Abs((ObjectManager.Player.Distance(waypoints.Last<Vector2>().To3D()) - ObjectManager.Player.Distance(target.Position))) > 400 || target.Path.Count() == 0))
-            {
-
-                if (ObjectManager.Player.Distance(target.ServerPosition) < ObjectManager.Player.Distance(target.Position))
-                    Q.Range = qRange - (target.MoveSpeed * Q.Delay);
-                else
-                    Q.Range = qRange;
-                Q.CastIfHitchanceEquals(target, HitChance.High, true);
-                Q.Range = qRange;
-            }
-        }
+        
 
         public static bool farmW()
         {

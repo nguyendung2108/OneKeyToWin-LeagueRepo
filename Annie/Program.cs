@@ -83,7 +83,7 @@ namespace Annie
             Config.SubMenu("Draw").SubMenu("Draw AAcirlce OKTW© style").AddItem(new MenuItem("OrbDraw", "Draw AAcirlce OKTW© style").SetValue(false));
             Config.SubMenu("Draw").SubMenu("Draw AAcirlce OKTW© style").AddItem(new MenuItem("1", "pls disable Orbwalking > Drawing > AAcirlce"));
             Config.SubMenu("Draw").SubMenu("Draw AAcirlce OKTW© style").AddItem(new MenuItem("2", "My HP: 0-30 red, 30-60 orange,60-100 green"));
-            Config.SubMenu("Draw").AddItem(new MenuItem("noti", "Show notification").SetValue(false));
+            Config.SubMenu("Draw").AddItem(new MenuItem("ComboInfo", "Combo Info").SetValue(true));
             Config.SubMenu("Draw").AddItem(new MenuItem("qRange", "Q range").SetValue(false));
             Config.SubMenu("Draw").AddItem(new MenuItem("wRange", "W range").SetValue(false));
             Config.SubMenu("Draw").AddItem(new MenuItem("rRange", "R range").SetValue(false));
@@ -294,8 +294,33 @@ namespace Annie
                 }
             }
         }
+
+        public static void drawText(string msg, Obj_AI_Hero Hero, System.Drawing.Color color)
+        {
+            var wts = Drawing.WorldToScreen(Hero.Position);
+            Drawing.DrawText(wts[0] - (msg.Length) * 5, wts[1], color, msg);
+        }
         private static void Drawing_OnDraw(EventArgs args)
         {
+            if (Config.Item("ComboInfo").GetValue<bool>())
+            {
+                var combo = "haras";
+                foreach (var enemy in ObjectManager.Get<Obj_AI_Hero>().Where(enemy => enemy.IsValidTarget()))
+                {
+                    if (Q.GetDamage(enemy) > enemy.Health)
+                        combo = "Q";
+                    else if (Q.GetDamage(enemy) + W.GetDamage(enemy) > enemy.Health)
+                        combo = "QW";
+                    else if (Q.GetDamage(enemy) + R.GetDamage(enemy) + W.GetDamage(enemy) > enemy.Health)
+                        combo = "QWR"; 
+                    else if (Q.GetDamage(enemy) * 2 + R.GetDamage(enemy) + W.GetDamage(enemy) > enemy.Health)
+                        combo = "QWRQ";
+                    else
+                        combo = "haras: " + (int)(enemy.Health - (Q.GetDamage(enemy) * 2 + R.GetDamage(enemy) + W.GetDamage(enemy)));
+                    drawText(combo, enemy, System.Drawing.Color.GreenYellow);
+                }
+            }
+
             if (Config.Item("OrbDraw").GetValue<bool>())
             {
                 if (ObjectManager.Player.HealthPercentage() > 60)

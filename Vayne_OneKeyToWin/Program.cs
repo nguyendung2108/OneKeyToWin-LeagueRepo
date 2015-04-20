@@ -281,8 +281,7 @@ namespace Vayne_OneKeyToWin
                 var targetPosition = E.GetPrediction(target).CastPosition;
                 var finalPosition = targetPosition.Extend(Player.ServerPosition, -pushDistance);
 
-                Render.Circle.DrawCircle(finalPosition, 100, System.Drawing.Color.Red);
-                Render.Circle.DrawCircle(targetPosition, 100, System.Drawing.Color.Red);
+               
             }
         }
     }

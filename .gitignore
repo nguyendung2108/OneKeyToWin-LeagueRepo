@@ -18,6 +18,8 @@ $RECYCLE.BIN/
 *.sln
 *.exe
 *.dll
+*.cache
+
 # =========================
 # Operating System Files
 # =========================
